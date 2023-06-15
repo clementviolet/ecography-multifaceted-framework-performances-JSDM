@@ -6,6 +6,8 @@ This folder contains the script and all the data used in the manuscript "Essenti
 
 - Scripts prefixed with 01 correspond to the HMSC models. Beware, each of these scripts requires a lot of computing power. They took about 3 weeks to run on an HPC. Thus, we have saved the results of the models so that they can be more easily analysed.
 
+- The R script prefixed with 02 contain the code to merge each individual HMSC chain into a single model. You must run it prior to any MCMC diagnostic or reproduce figures.
+
 - The R script prefixed with 03 contain the code to run the diagnostics on the MCMC chains.
 
 - Finally, the script prefixed with 04 is used to generate all the figures in the manuscript. To do so, it uses the output saves of the models, as specified above.
