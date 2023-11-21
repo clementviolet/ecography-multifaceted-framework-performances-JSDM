@@ -703,8 +703,10 @@ fit_test_pa_relative <- fit_test_pa %>%
 fit_test_pa_relative %>%
     group_by(model) %>%
     summarise(
-        mean_AUC = mean(value), 
-        mean_relative_change = mean(relative_change)
+        mean_AUC = mean(value),
+        std_AUC = sd(value),
+        mean_relative_change = mean(relative_change),
+        std_relative_change = sd(relative_change)
     )
 
 fit_test_pa_relative %>%
@@ -793,7 +795,11 @@ fit_test_ab_relative <- fit_test_ab %>%
         relative_change = if_else(
           is.nan(relative_change),
           0,
-          .$relative_change
+          if_else(
+            is.infinite(relative_change),
+            0,
+            relative_change
+          )
         )
       )
   }) %>%
@@ -806,9 +812,26 @@ fit_test_ab_relative <- fit_test_ab %>%
 fit_test_ab_relative %>%
     group_by(model) %>%
     summarise(
-        mean_rmse = mean(value), 
-        mean_relative_change = mean(relative_change)
+        mean_rmse = mean(value),
+        std_rmse = sd(value),
+        mean_relative_change = mean(relative_change),
+        std_relative_change = sd(relative_change)
     )
+
+fit_test_ab_relative %>%
+    filter(data_type == "AB", measure == "RMSE") %>%
+    add_count(model, data_type, measure) %>%
+    mutate(
+        decrease = if_else(relative_change < 0, 1, 0),
+        stable = if_else(relative_change == 0, 1, 0),
+        increase = if_else(relative_change > 0, 1, 0)
+    ) %>%
+    group_by(model) %>%
+        summarise(
+            n_decrease = sum(decrease),
+            n_stable = sum(stable),
+            n_increase = sum(increase)
+        )
 
 p7 <- ggplot(fit_test_ab_relative %>% filter(relative_change < Inf), aes(x = model, y = relative_change, color = model, group = species)) +
   geom_line(alpha = 0.3) +
@@ -2746,6 +2769,80 @@ sp_order_vp_pa <- VP %>%
   arrange(desc(explained_var)) %>%
   .$species %>%
   as.character()
+
+VP %>%
+  # filter(data_type == "AB") %>%
+  group_by(model, data_type, variable) %>%
+  summarise(mean = mean(explained_var, na.rm = TRUE), sd = sd(explained_var, na.rm = TRUE))
+
+VP_ab <- VP %>%
+  filter(data_type == "AB") %>%
+  mutate(
+    variable = str_remove(variable, ":\\s[:alpha:]*"),
+    species = factor(species, levels = sp_order_vp_ab)
+  ) %>%
+  group_by(model, data_type, species, variable) %>%
+  summarise(value = sum(explained_var), .groups = "drop") %>%
+  {
+    ggplot(., aes(x = species, y = value, fill = variable)) +
+      geom_col(width = max(diff(.$value)) * 1.05) +
+      labs(
+        x = "",
+        y = "Proportion of explained variance"
+      ) +
+      scale_fill_manual(
+        name = "Variable",
+        values = rcartocolor::carto_pal(10, "Prism")[c(5, 10)]
+      ) +
+      facet_grid(model ~ data_type,
+        labeller = labeller(data_type = c("AB" = "Abundance"))
+      ) +
+      theme(
+        axis.text.x = element_blank(),
+        strip.text.y = element_text(size = 6),
+        axis.ticks.x = element_blank(),
+        panel.grid = element_blank()
+      )
+  }
+
+VP_pa <- VP %>%
+  filter(data_type == "PA") %>%
+  mutate(
+    variable = str_remove(variable, ":\\s[:alpha:]*"),
+    species = factor(species, levels = sp_order_vp_pa)
+  ) %>%
+  group_by(model, data_type, species, variable) %>%
+  summarise(value = sum(explained_var), .groups = "drop") %>%
+  {
+    ggplot(., aes(x = species, y = value, fill = variable)) +
+      geom_col(width = max(diff(.$value)) * 1.05) +
+      labs(
+        x = "",
+        y = ""
+      ) +
+      scale_fill_manual(
+        name = "Variable",
+        values = rcartocolor::carto_pal(10, "Prism")[c(5, 10)]
+      ) +
+      facet_grid(model ~ data_type,
+        labeller = labeller(data_type = c("PA" = "Occurence"))
+      ) +
+      theme(
+        axis.text.x = element_blank(),
+        strip.text.y = element_text(size = 6),
+        axis.ticks.x = element_blank(),
+        panel.grid = element_blank()
+      )
+  }
+
+
+fig_supp23 <- VP_ab + VP_pa + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+VP %>%
+  # filter(data_type == "AB") %>%
+  group_by(model, data_type, variable) %>%
+  summarise(mean = mean(explained_var, na.rm = TRUE), sd = sd(explained_var, na.rm = TRUE))
 
 VP_ab <- VP %>%
   filter(data_type == "AB") %>%
